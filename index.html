@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>就活企業管理アプリ</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; }
+    form, ul { max-width: 600px; margin: 0 auto; }
+    form { background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); margin-bottom: 30px; }
+    label { display: block; margin-bottom: 10px; }
+    input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; margin-top: 4px; margin-bottom: 15px; font-size: 1rem; }
+    button { padding: 10px 15px; font-size: 1rem; margin-bottom: 10px; }
+    li { background-color: white; padding: 10px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); word-wrap: break-word; }
+    a { display: inline-block; margin-top: 8px; }
+    h1, h2, h3 { text-align: center; }
+    #filterStatus { width: 100%; max-width: 600px; display: block; margin: 0 auto 20px auto; padding: 8px; font-size: 1rem; }
+    #loginSection { text-align: center; margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+  <h1>就活企業管理アプリ</h1>
+
+  <div id="loginSection">
+    <button onclick="signIn()">Googleでログイン</button>
+    <p id="userEmail"></p>
+  </div>
+
+  <h3>状況で絞り込み</h3>
+  <select id="filterStatus" onchange="displayCompanies()">
+    <option value="すべて">すべて</option>
+    <option value="未応募">未応募</option>
+    <option value="エントリー済">エントリー済</option>
+    <option value="ES提出">ES提出</option>
+    <option value="面接中">面接中</option>
+    <option value="内定">内定</option>
+  </select>
+
+  <form id="jobForm" style="display:none">
+    <input type="hidden" id="editIndex" value="">
+    <label>企業名:<input type="text" id="company" required></label>
+    <label>業界:<input type="text" id="industry"></label>
+    <label>選考状況:
+      <select id="status">
+        <option value="未応募">未応募</option>
+        <option value="エントリー済">エントリー済</option>
+        <option value="ES提出">ES提出</option>
+        <option value="面接中">面接中</option>
+        <option value="内定">内定</option>
+      </select>
+    </label>
+    <label>志望度（1〜5）:<input type="number" id="priority" min="1" max="5"></label>
+    <label>面接日:<input type="date" id="interviewDate"></label>
+    <label>締切日:<input type="date" id="deadlineDate"></label>
+    <label>メモ:<textarea id="note" rows="4"></textarea></label>
+    <button type="submit">登録</button>
+  </form>
+
+  <h2>登録された企業一覧</h2>
+  <ul id="companyList"></ul>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
+      authDomain: "syukatsukanri-cad68.firebaseapp.com",
+      projectId: "syukatsukanri-cad68",
+      storageBucket: "syukatsukanri-cad68.firebasestorage.app",
+      messagingSenderId: "352899195655",
+      appId: "1:352899195655:web:3c24fe149735c123655ba2",
+      measurementId: "G-TRXF8QEDHB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getFirestore();
+    let user = null;
+    let companies = [];
+
+    onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        user = u;
+        document.getElementById("userEmail").innerText = `ログイン中: ${user.email}`;
+        document.getElementById("jobForm").style.display = "block";
+        await loadData();
+      }
+    });
+
+    async function loadData() {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        companies = docSnap.data().companies || [];
+      } else {
+        companies = [];
+      }
+      displayCompanies();
+    }
+
+    async function saveData() {
+      await setDoc(doc(db, "users", user.uid), { companies });
+    }
+
+    function signIn() {
+      const provider = new GoogleAuthProvider();
+      signInWithPopup(auth, provider);
+    }
+
+    function displayCompanies() {
+      const list = document.getElementById('companyList');
+      list.innerHTML = '';
+      const today = new Date();
+      const filter = document.getElementById('filterStatus')?.value || 'すべて';
+
+      const sorted = [...companies].sort((a, b) => {
+        const aDate = a.deadlineDate ? new Date(a.deadlineDate) : new Date(3000, 0);
+        const bDate = b.deadlineDate ? new Date(b.deadlineDate) : new Date(3000, 0);
+        return aDate - bDate;
+      });
+
+      sorted
+        .filter(c => filter === 'すべて' || c.status === filter)
+        .forEach((c, index) => {
+          const li = document.createElement('li');
+          let bgColor = '';
+          if (c.deadlineDate) {
+            const deadline = new Date(c.deadlineDate);
+            const diffDays = Math.floor((deadline - today) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 3) bgColor = 'rgba(255, 0, 0, 0.3)';
+            else if (diffDays <= 7) bgColor = 'rgba(255, 165, 0, 0.2)';
+            else bgColor = 'transparent';
+          }
+          li.style.backgroundColor = bgColor;
+
+          const calendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.company + '（' + c.status + '）')}&dates=${formatDateForGoogle(c.deadlineDate)}&details=${encodeURIComponent(c.note)}`;
+
+          li.innerHTML = `
+            <strong>${c.company}</strong> (${c.industry})<br>
+            状況: ${c.status}／志望度: ${c.priority}<br>
+            面接日: ${c.interviewDate || '未定'}<br>
+            締切日: ${c.deadlineDate || '未定'}<br>
+            メモ: ${c.note}<br>
+            <a href="${calendarLink}" target="_blank">📅 カレンダーに追加</a><br>
+            <button onclick="editCompany(${index})">編集</button>
+            <button onclick="deleteCompany(${index})">削除</button>
+          `;
+          list.appendChild(li);
+        });
+    }
+
+    function editCompany(index) {
+      const c = companies[index];
+      document.getElementById('company').value = c.company;
+      document.getElementById('industry').value = c.industry;
+      document.getElementById('status').value = c.status;
+      document.getElementById('priority').value = c.priority;
+      document.getElementById('interviewDate').value = c.interviewDate || '';
+      document.getElementById('deadlineDate').value = c.deadlineDate || '';
+      document.getElementById('note').value = c.note;
+      document.getElementById('editIndex').value = index;
+    }
+
+    async function deleteCompany(index) {
+      if (confirm("本当に削除しますか？")) {
+        companies.splice(index, 1);
+        await saveData();
+        displayCompanies();
+      }
+    }
+
+    function formatDateForGoogle(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}${m}${d}T090000Z/${y}${m}${d}T100000Z`;
+    }
+
+    document.getElementById('jobForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const index = document.getElementById('editIndex').value;
+      const newEntry = {
+        company: document.getElementById('company').value,
+        industry: document.getElementById('industry').value,
+        status: document.getElementById('status').value,
+        priority: document.getElementById('priority').value,
+        interviewDate: document.getElementById('interviewDate').value,
+        deadlineDate: document.getElementById('deadlineDate').value,
+        note: document.getElementById('note').value
+      };
+
+      if (index === "") {
+        companies.push(newEntry);
+      } else {
+        companies[parseInt(index)] = newEntry;
+        document.getElementById('editIndex').value = "";
+      }
+
+      await saveData();
+      displayCompanies();
+      document.getElementById('jobForm').reset();
+    });
+  </script>
+</body>
+</html>
