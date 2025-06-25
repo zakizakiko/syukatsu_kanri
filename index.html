@@ -3,205 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>就活企業管理アプリ</title>
-  <style>
-    body { font-family: sans-serif; padding: 10px; max-width: 600px; margin: auto; }
-    li { padding: 10px; margin-bottom: 10px; border-radius: 8px; list-style: none; }
-    button { margin-right: 6px; }
-    input, select, textarea { width: 100%; margin-bottom: 10px; }
-    .hidden { display: none; }
-    .date-field-row { display: flex; gap: 5px; align-items: center; margin-bottom: 8px; }
-    .date-field-row input[type="text"] { flex: 2; }
-    .date-field-row input[type="date"] { flex: 3; }
-  </style>
+  <title>Google Login Test</title>
 </head>
 <body>
-  <h1>就活企業管理</h1>
+  <h1>ログインテスト</h1>
   <button id="loginButton">Googleでログイン</button>
-  <button id="logoutButton" style="display:none;">ログアウト</button>
-  <p id="userEmail"></p>
-
-  <div id="authContent" class="hidden">
-    <form id="jobForm">
-      <input type="hidden" id="editIndex" value="">
-      <label>企業名: <input type="text" id="company" required></label>
-      <label>業界: <input type="text" id="industry"></label>
-      <label>選考状況:
-        <select id="status">
-          <option value="未応募">未応募</option>
-          <option value="エントリー済">エントリー済</option>
-          <option value="ES提出">ES提出</option>
-          <option value="面接中">面接中</option>
-          <option value="内定">内定</option>
-        </select>
-      </label>
-      <label>志望度（1〜5）: <input type="number" id="priority" min="1" max="5"></label>
-      <label>メモ: <textarea id="note" rows="4"></textarea></label>
-      <h3>日付項目</h3>
-      <div id="customDates"></div>
-      <button type="button" onclick="addDateField()">＋ 日付項目を追加</button>
-      <button type="submit">登録</button>
-    </form>
-
-    <h2>登録一覧</h2>
-    <select id="filterStatus">
-      <option value="すべて">すべて</option>
-      <option value="未応募">未応募</option>
-      <option value="エントリー済">エントリー済</option>
-      <option value="ES提出">ES提出</option>
-      <option value="面接中">面接中</option>
-      <option value="内定">内定</option>
-    </select>
-    <ul id="companyList"></ul>
-  </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
 
   <script>
+    // ✅ あなたのFirebase設定に差し替えてください
     const firebaseConfig = {
       apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
       authDomain: "syukatsukanri-cad68.firebaseapp.com",
       projectId: "syukatsukanri-cad68",
-      storageBucket: "syukatsukanri-cad68.appspot.com",
-      messagingSenderId: "352899195655",
-      appId: "1:352899195655:web:3c24fe149735c123655ba2",
-      measurementId: "G-TRXF8QEDHB"
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const db = firebase.firestore();
 
-    const loginBtn = document.getElementById("loginButton");
-    const logoutBtn = document.getElementById("logoutButton");
-    const userEmail = document.getElementById("userEmail");
-    const authContent = document.getElementById("authContent");
-    let companies = [];
-    let currentUser = null;
-
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        currentUser = user;
-        loginBtn.style.display = "none";
-        logoutBtn.style.display = "inline";
-        authContent.classList.remove("hidden");
-        userEmail.textContent = `ログイン中: ${user.email}`;
-        loadCompanies();
-      } else {
-        currentUser = null;
-        loginBtn.style.display = "inline";
-        logoutBtn.style.display = "none";
-        authContent.classList.add("hidden");
-        userEmail.textContent = "";
-      }
-    });
-
-    loginBtn.onclick = () => {
+    // ✅ ログインボタンのクリック処理
+    document.getElementById("loginButton").onclick = () => {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(alert);
-    };
-
-    logoutBtn.onclick = () => auth.signOut();
-
-    function addDateField(name = '', date = '') {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'date-field-row';
-      wrapper.innerHTML = `
-        <input type="text" placeholder="項目名" value="${name}" class="dateLabel">
-        <input type="date" value="${date}" class="dateValue">
-        <button type="button" onclick="this.parentElement.remove()">❌</button>
-      `;
-      document.getElementById('customDates').appendChild(wrapper);
-    }
-
-    function getCustomDates() {
-      return Array.from(document.querySelectorAll('.date-field-row')).map(row => ({
-        label: row.querySelector('.dateLabel').value,
-        date: row.querySelector('.dateValue').value
-      })).filter(d => d.label);
-    }
-
-    function loadCompanies() {
-      db.collection("users").doc(currentUser.uid).collection("jobs").get().then(snapshot => {
-        companies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        displayCompanies();
-      });
-    }
-
-    function saveCompany(entry, id = null) {
-      const ref = db.collection("users").doc(currentUser.uid).collection("jobs");
-      if (id) {
-        ref.doc(id).set(entry).then(loadCompanies);
-      } else {
-        ref.add(entry).then(loadCompanies);
-      }
-    }
-
-    function deleteCompany(id) {
-      if (confirm("本当に削除しますか？")) {
-        db.collection("users").doc(currentUser.uid).collection("jobs").doc(id).delete().then(loadCompanies);
-      }
-    }
-
-    function displayCompanies() {
-      const list = document.getElementById('companyList');
-      list.innerHTML = '';
-      const today = new Date();
-      const filter = document.getElementById('filterStatus').value;
-
-      companies
-        .filter(c => filter === 'すべて' || c.status === filter)
-        .forEach(c => {
-          const li = document.createElement('li');
-          li.style.backgroundColor = 'transparent';
-
-          let customDateList = '';
-          (c.customDates || []).forEach(d => {
-            customDateList += `${d.label}: ${d.date || '未定'}<br>`;
-          });
-
-          li.innerHTML = `
-            <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
-            ${customDateList}
-            メモ: ${c.note}<br>
-            <button onclick="editCompany('${c.id}')">編集</button>
-            <button onclick="deleteCompany('${c.id}')">削除</button>
-          `;
-          list.appendChild(li);
+      auth.signInWithPopup(provider)
+        .then(result => {
+          alert("ログイン成功！" + result.user.email);
+        })
+        .catch(error => {
+          alert("ログイン失敗：" + error.message);
+          console.error(error);
         });
-    }
-
-    function editCompany(id) {
-      const c = companies.find(e => e.id === id);
-      document.getElementById('company').value = c.company;
-      document.getElementById('industry').value = c.industry;
-      document.getElementById('status').value = c.status;
-      document.getElementById('priority').value = c.priority;
-      document.getElementById('note').value = c.note;
-      document.getElementById('editIndex').value = id;
-      document.getElementById('customDates').innerHTML = '';
-      (c.customDates || []).forEach(d => addDateField(d.label, d.date));
-    }
-
-    document.getElementById('jobForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const id = document.getElementById('editIndex').value;
-      const entry = {
-        company: document.getElementById('company').value,
-        industry: document.getElementById('industry').value,
-        status: document.getElementById('status').value,
-        priority: document.getElementById('priority').value,
-        note: document.getElementById('note').value,
-        customDates: getCustomDates()
-      };
-      saveCompany(entry, id || null);
-      this.reset();
-      document.getElementById('editIndex').value = '';
-      document.getElementById('customDates').innerHTML = '';
-    });
-
-    document.getElementById('filterStatus').addEventListener('change', displayCompanies);
+    };
   </script>
 </body>
 </html>
