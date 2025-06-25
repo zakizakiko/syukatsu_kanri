@@ -190,7 +190,17 @@
       saveCompany(entry, id || null);
       this.reset();
       document.getElementById('editIndex').value = '';
+    }
+    function signIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider)
+    .then((result) => {
+      console.log("ログイン成功:", result.user);
+    })
+    .catch((error) => {
+      console.error("ログイン失敗:", error);
     });
+});
 
     document.getElementById('filterStatus').addEventListener('change', displayCompanies);
   </script>
