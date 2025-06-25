@@ -9,6 +9,10 @@
     li { padding: 10px; margin-bottom: 10px; border-radius: 8px; list-style: none; }
     button { margin-right: 6px; }
     input, select, textarea { width: 100%; margin-bottom: 10px; }
+    .hidden { display: none; }
+    .date-field-row { display: flex; gap: 5px; align-items: center; margin-bottom: 8px; }
+    .date-field-row input[type="text"] { flex: 2; }
+    .date-field-row input[type="date"] { flex: 3; }
   </style>
 </head>
 <body>
@@ -17,65 +21,62 @@
   <button id="logoutButton" style="display:none;">ログアウト</button>
   <p id="userEmail"></p>
 
-  <form id="jobForm" style="display:none;">
-    <input type="hidden" id="editIndex" value="">
-    <label>企業名: <input type="text" id="company" required></label>
-    <label>業界: <input type="text" id="industry"></label>
-    <label>選考状況:
-      <select id="status">
-        <option value="未応募">未応募</option>
-        <option value="エントリー済">エントリー済</option>
-        <option value="ES提出">ES提出</option>
-        <option value="面接中">面接中</option>
-        <option value="内定">内定</option>
-      </select>
-    </label>
-    <label>志望度（1～5）: <input type="number" id="priority" min="1" max="5"></label>
-    <label>面接日: <input type="date" id="interviewDate"></label>
-    <label>締切日: <input type="date" id="deadlineDate"></label>
-    <label>メモ: <textarea id="note" rows="4"></textarea></label>
-    <button type="submit">登録</button>
-  </form>
+  <div id="authContent" class="hidden">
+    <form id="jobForm">
+      <input type="hidden" id="editIndex" value="">
+      <label>企業名: <input type="text" id="company" required></label>
+      <label>業界: <input type="text" id="industry"></label>
+      <label>選考状況:
+        <select id="status">
+          <option value="未応募">未応募</option>
+          <option value="エントリー済">エントリー済</option>
+          <option value="ES提出">ES提出</option>
+          <option value="面接中">面接中</option>
+          <option value="内定">内定</option>
+        </select>
+      </label>
+      <label>志望度（1〜5）: <input type="number" id="priority" min="1" max="5"></label>
+      <label>メモ: <textarea id="note" rows="4"></textarea></label>
+      <h3>日付項目</h3>
+      <div id="customDates"></div>
+      <button type="button" onclick="addDateField()">＋ 日付項目を追加</button>
+      <button type="submit">登録</button>
+    </form>
 
-  <h2>登録一覧</h2>
-  <select id="filterStatus">
-    <option value="すべて">すべて</option>
-    <option value="未応募">未応募</option>
-    <option value="エントリー済">エントリー済</option>
-    <option value="ES提出">ES提出</option>
-    <option value="面接中">面接中</option>
-    <option value="内定">内定</option>
-  </select>
-  <ul id="companyList"></ul>
+    <h2>登録一覧</h2>
+    <select id="filterStatus">
+      <option value="すべて">すべて</option>
+      <option value="未応募">未応募</option>
+      <option value="エントリー済">エントリー済</option>
+      <option value="ES提出">ES提出</option>
+      <option value="面接中">面接中</option>
+      <option value="内定">内定</option>
+    </select>
+    <ul id="companyList"></ul>
+  </div>
 
-  <!-- Firebase App (必須) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<!-- Firebase Authentication -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<!-- Firebase Firestore -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
 
-<script>
-  // ✅ Firebase設定
-  const firebaseConfig = {
-    apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
-    authDomain: "syukatsukanri-cad68.firebaseapp.com",
-    projectId: "syukatsukanri-cad68",
-    storageBucket: "syukatsukanri-cad68.appspot.com",
-    messagingSenderId: "352899195655",
-    appId: "1:352899195655:web:3c24fe149735c123655ba2",
-    measurementId: "G-TRXF8QEDHB"
-  };
-
-  // ✅ 初期化
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
+      authDomain: "syukatsukanri-cad68.firebaseapp.com",
+      projectId: "syukatsukanri-cad68",
+      storageBucket: "syukatsukanri-cad68.appspot.com",
+      messagingSenderId: "352899195655",
+      appId: "1:352899195655:web:3c24fe149735c123655ba2",
+      measurementId: "G-TRXF8QEDHB"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
     const loginBtn = document.getElementById("loginButton");
     const logoutBtn = document.getElementById("logoutButton");
-    const jobForm = document.getElementById("jobForm");
     const userEmail = document.getElementById("userEmail");
+    const authContent = document.getElementById("authContent");
     let companies = [];
     let currentUser = null;
 
@@ -84,16 +85,15 @@
         currentUser = user;
         loginBtn.style.display = "none";
         logoutBtn.style.display = "inline";
-        jobForm.style.display = "block";
+        authContent.classList.remove("hidden");
         userEmail.textContent = `ログイン中: ${user.email}`;
         loadCompanies();
       } else {
         currentUser = null;
         loginBtn.style.display = "inline";
         logoutBtn.style.display = "none";
-        jobForm.style.display = "none";
+        authContent.classList.add("hidden");
         userEmail.textContent = "";
-        document.getElementById("companyList").innerHTML = "";
       }
     });
 
@@ -103,6 +103,24 @@
     };
 
     logoutBtn.onclick = () => auth.signOut();
+
+    function addDateField(name = '', date = '') {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'date-field-row';
+      wrapper.innerHTML = `
+        <input type="text" placeholder="項目名" value="${name}" class="dateLabel">
+        <input type="date" value="${date}" class="dateValue">
+        <button type="button" onclick="this.parentElement.remove()">❌</button>
+      `;
+      document.getElementById('customDates').appendChild(wrapper);
+    }
+
+    function getCustomDates() {
+      return Array.from(document.querySelectorAll('.date-field-row')).map(row => ({
+        label: row.querySelector('.dateLabel').value,
+        date: row.querySelector('.dateValue').value
+      })).filter(d => d.label);
+    }
 
     function loadCompanies() {
       db.collection("users").doc(currentUser.uid).collection("jobs").get().then(snapshot => {
@@ -134,38 +152,24 @@
 
       companies
         .filter(c => filter === 'すべて' || c.status === filter)
-        .sort((a, b) => new Date(a.deadlineDate || 3000) - new Date(b.deadlineDate || 3000))
-        .forEach((c) => {
+        .forEach(c => {
           const li = document.createElement('li');
-          let bgColor = 'transparent';
-          if (c.deadlineDate) {
-            const diffDays = Math.floor((new Date(c.deadlineDate) - today) / (1000 * 60 * 60 * 24));
-            if (diffDays <= 3) bgColor = 'rgba(255, 0, 0, 0.4)';
-            else if (diffDays <= 7) bgColor = 'rgba(255, 165, 0, 0.3)';
-          }
-          li.style.backgroundColor = bgColor;
+          li.style.backgroundColor = 'transparent';
 
-          const calendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.company + '（' + c.status + '）')}&dates=${formatDateForGoogle(c.deadlineDate)}&details=${encodeURIComponent(c.note)}`;
+          let customDateList = '';
+          (c.customDates || []).forEach(d => {
+            customDateList += `${d.label}: ${d.date || '未定'}<br>`;
+          });
 
           li.innerHTML = `
             <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
-            面接日: ${c.interviewDate || '未定'}　締切: ${c.deadlineDate || '未定'}<br>
+            ${customDateList}
             メモ: ${c.note}<br>
             <button onclick="editCompany('${c.id}')">編集</button>
-            <a href="${calendarLink}" target="_blank">📅 カレンダーに追加</a>
             <button onclick="deleteCompany('${c.id}')">削除</button>
           `;
           list.appendChild(li);
         });
-    }
-
-    function formatDateForGoogle(date) {
-      if (!date) return '';
-      const d = new Date(date);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}${mm}${dd}/${yyyy}${mm}${dd}`;
     }
 
     function editCompany(id) {
@@ -174,10 +178,10 @@
       document.getElementById('industry').value = c.industry;
       document.getElementById('status').value = c.status;
       document.getElementById('priority').value = c.priority;
-      document.getElementById('interviewDate').value = c.interviewDate;
-      document.getElementById('deadlineDate').value = c.deadlineDate;
       document.getElementById('note').value = c.note;
       document.getElementById('editIndex').value = id;
+      document.getElementById('customDates').innerHTML = '';
+      (c.customDates || []).forEach(d => addDateField(d.label, d.date));
     }
 
     document.getElementById('jobForm').addEventListener('submit', function(e) {
@@ -188,13 +192,13 @@
         industry: document.getElementById('industry').value,
         status: document.getElementById('status').value,
         priority: document.getElementById('priority').value,
-        interviewDate: document.getElementById('interviewDate').value,
-        deadlineDate: document.getElementById('deadlineDate').value,
-        note: document.getElementById('note').value
+        note: document.getElementById('note').value,
+        customDates: getCustomDates()
       };
       saveCompany(entry, id || null);
       this.reset();
       document.getElementById('editIndex').value = '';
+      document.getElementById('customDates').innerHTML = '';
     });
 
     document.getElementById('filterStatus').addEventListener('change', displayCompanies);
