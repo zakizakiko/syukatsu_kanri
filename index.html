@@ -55,24 +55,29 @@
     <ul id="companyList"></ul>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+ <!-- Firebase App (必須) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<!-- Firebase Authentication -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
-      authDomain: "syukatsukanri-cad68.firebaseapp.com",
-      projectId: "syukatsukanri-cad68",
-      storageBucket: "syukatsukanri-cad68.appspot.com",
-      messagingSenderId: "352899195655",
-      appId: "1:352899195655:web:3c24fe149735c123655ba2",
-      measurementId: "G-TRXF8QEDHB"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+<script>
+  // ✅ Firebase設定
+  const firebaseConfig = {
+    apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
+    authDomain: "syukatsukanri-cad68.firebaseapp.com",
+    projectId: "syukatsukanri-cad68",
+    storageBucket: "syukatsukanri-cad68.appspot.com",
+    messagingSenderId: "352899195655",
+    appId: "1:352899195655:web:3c24fe149735c123655ba2",
+    measurementId: "G-TRXF8QEDHB"
+  };
 
+  // ✅ 初期化
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
     const loginBtn = document.getElementById("loginButton");
     const logoutBtn = document.getElementById("logoutButton");
     const userEmail = document.getElementById("userEmail");
