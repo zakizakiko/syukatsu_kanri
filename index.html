@@ -202,20 +202,7 @@
     });
 
     document.getElementById('filterStatus').addEventListener('change', displayCompanies);
-    <script>
-  // ログインボタン処理（これが必要）
-  document.getElementById("loginButton").onclick = () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(provider)
-      .then((result) => {
-        console.log("ログイン成功:", result.user);
-      })
-      .catch((error) => {
-        console.error("ログイン失敗:", error);
-      });
-  };
-</script>
-
+ 
   </script>
 </body>
 </html>
