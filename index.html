@@ -145,53 +145,60 @@
       }
     }
 
-    function displayCompanies() {
-      const list = document.getElementById('companyList');
-      list.innerHTML = '';
-      const filter = document.getElementById('filterStatus').value;
+  function displayCompanies() {
+  const list = document.getElementById('companyList');
+  list.innerHTML = '';
+  const today = new Date();
+  const filter = document.getElementById('filterStatus').value;
 
-      companies
-        .filter(c => filter === 'すべて' || c.status === filter)
-        .forEach(c => {
-          const li = document.createElement('li');
-          li.style.backgroundColor = 'transparent';
-
-          let customDateList = '';
-          (c.customDates || []).forEach(d => {
-            customDateList += `${d.label}: ${d.date || '未定'}<br>`;
-          });
-
-          
-          // 日付によって li の背景色を変える
-let hasDateColor = false;
-(c.customDates || []).forEach(d => {
-  const dateObj = new Date(d.date);
-  if (!isNaN(dateObj)) {
-    if (dateObj < today) {
-      li.style.backgroundColor = "#ffcccc";  // 赤（期限切れ）
-      hasDateColor = true;
-    } else if (dateObj.toDateString() === today.toDateString()) {
-      li.style.backgroundColor = "#fff0b3";  // オレンジ（今日）
-      hasDateColor = true;
-    } else if (!hasDateColor) {
-      li.style.backgroundColor = "#ccffcc";  // 緑（未来）
-    }
-  }
-});
-
-
-          
-          li.innerHTML = `
-            <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
-            ${customDateList}
-            メモ: ${c.note}<br>
-            <button onclick="editCompany('${c.id}')">編集</button>
-            <button onclick="deleteCompany('${c.id}')">削除</button>
-          `;
-          list.appendChild(li);
+  // 期日が一番近いものを抽出
+  const companiesWithNearestDate = companies
+    .filter(c => filter === 'すべて' || c.status === filter)
+    .map(c => {
+      const upcomingDates = (c.customDates || [])
+        .map(d => {
+          const date = new Date(d.date);
+          const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
+          return (!isNaN(date) && diff >= 0) ? diff : Infinity;
         });
+      const nearest = Math.min(...upcomingDates);
+      return { ...c, nearestDate: nearest };
+    })
+    .sort((a, b) => a.nearestDate - b.nearestDate);
+
+  companiesWithNearestDate.forEach(c => {
+    const li = document.createElement('li');
+
+    let customDateList = '';
+    (c.customDates || []).forEach(d => {
+      const date = new Date(d.date);
+      const diffDays = Math.floor((date - today) / (1000 * 60 * 60 * 24));
+      let bgColor = '';
+
+      if (!isNaN(date) && diffDays >= 0) {
+        if (diffDays <= 1) bgColor = '#ffcccc';     // 赤
+        else if (diffDays <= 3) bgColor = '#ffe0b3'; // オレンジ
+        else if (diffDays <= 6) bgColor = '#ffffcc'; // 黄
+        else if (diffDays <= 14) bgColor = '#ccffcc';// 黄緑
+      }
+
+      customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">
+        ${d.label}: ${d.date || '未定'}
+      </span><br>`;
+    });
+
+    li.innerHTML = `
+      <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
+      ${customDateList}
+      メモ: ${c.note}<br>
+      <button onclick="editCompany('${c.id}')">編集</button>
+      <button onclick="deleteCompany('${c.id}')">削除</button>
+    `;
+    list.appendChild(li);
+      });
     }
 
+  
     function editCompany(id) {
       const c = companies.find(e => e.id === id);
       document.getElementById('company').value = c.company;
