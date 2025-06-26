@@ -161,6 +161,26 @@
             customDateList += `${d.label}: ${d.date || '未定'}<br>`;
           });
 
+          
+          // 日付によって li の背景色を変える
+let hasDateColor = false;
+(c.customDates || []).forEach(d => {
+  const dateObj = new Date(d.date);
+  if (!isNaN(dateObj)) {
+    if (dateObj < today) {
+      li.style.backgroundColor = "#ffcccc";  // 赤（期限切れ）
+      hasDateColor = true;
+    } else if (dateObj.toDateString() === today.toDateString()) {
+      li.style.backgroundColor = "#fff0b3";  // オレンジ（今日）
+      hasDateColor = true;
+    } else if (!hasDateColor) {
+      li.style.backgroundColor = "#ccffcc";  // 緑（未来）
+    }
+  }
+});
+
+
+          
           li.innerHTML = `
             <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
             ${customDateList}
