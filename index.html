@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>就活企業管理アプリ</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>就活企業管理＋カレンダー</title>
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css' rel='stylesheet' />
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js'></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 10px; max-width: 600px; margin: auto; }
+    body { font-family: sans-serif; padding: 10px; max-width: 900px; margin: auto; }
     li { padding: 10px; margin-bottom: 10px; border-radius: 8px; list-style: none; }
-    button { margin-right: 6px; }
     input, select, textarea { width: 100%; margin-bottom: 10px; }
     .hidden { display: none; }
     .date-field-row { display: flex; gap: 5px; align-items: center; margin-bottom: 8px; }
     .date-field-row input[type="text"] { flex: 2; }
     .date-field-row input[type="date"] { flex: 3; }
   </style>
-  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
-  <h1>就活企業管理</h1>
+  <h1>就活企業管理＋カレンダー</h1>
   <button id="loginButton">Googleでログイン</button>
   <button id="logoutButton" style="display:none;">ログアウト</button>
   <p id="userEmail"></p>
@@ -54,35 +57,30 @@
       <option value="内定">内定</option>
     </select>
     <ul id="companyList"></ul>
+
+    <h2>カレンダー</h2>
+    <div id='calendar'></div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
   <script>
-    const CLIENT_ID = "352899195655-bbbgjl4omo83fteavk2jvc4rp25a0h2d.apps.googleusercontent.com";
-    const API_KEY = "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8";
-    const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-    const SCOPES = "https://www.googleapis.com/auth/calendar.events";
-
     const firebaseConfig = {
-      apiKey: API_KEY,
+      apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
       authDomain: "syukatsukanri-cad68.firebaseapp.com",
       projectId: "syukatsukanri-cad68",
       storageBucket: "syukatsukanri-cad68.appspot.com",
       messagingSenderId: "352899195655",
-      appId: "1:352899195655:web:3c24fe149735c123655ba2"
+      appId: "1:352899195655:web:3c24fe149735c123655ba2",
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-
     const loginBtn = document.getElementById("loginButton");
     const logoutBtn = document.getElementById("logoutButton");
-    const userEmail = document.getElementById("userEmail");
     const authContent = document.getElementById("authContent");
+    const userEmail = document.getElementById("userEmail");
     let companies = [];
     let currentUser = null;
+    let calendar;
 
     auth.onAuthStateChanged(user => {
       if (user) {
@@ -92,7 +90,6 @@
         authContent.classList.remove("hidden");
         userEmail.textContent = `ログイン中: ${user.email}`;
         loadCompanies();
-        initGoogleCalendarApi();
       } else {
         currentUser = null;
         loginBtn.style.display = "inline";
@@ -106,35 +103,7 @@
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).catch(alert);
     };
-
     logoutBtn.onclick = () => auth.signOut();
-
-    function initGoogleCalendarApi() {
-      gapi.load("client:auth2", () => {
-        gapi.client.init({
-          apiKey: API_KEY,
-          clientId: CLIENT_ID,
-          discoveryDocs: DISCOVERY_DOCS,
-          scope: SCOPES
-        }).then(() => console.log("Google Calendar API 初期化完了"))
-        .catch(e => console.error("Google API 初期化失敗", e));
-      });
-    }
-
-    function addEventToCalendar(title, date, description = "") {
-      const event = {
-        summary: title,
-        description: description,
-        start: { date: date },
-        end: { date: date }
-      };
-      gapi.client.calendar.events.insert({
-        calendarId: "primary",
-        resource: event
-      }).then(() => {
-        console.log(`${title} をカレンダーに追加しました`);
-      }).catch(e => console.error("カレンダー追加失敗", e));
-    }
 
     function addDateField(name = '', date = '') {
       const wrapper = document.createElement('div');
@@ -158,66 +127,42 @@
       db.collection("users").doc(currentUser.uid).collection("jobs").get().then(snapshot => {
         companies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         displayCompanies();
+        renderCalendar();
       });
     }
 
     function saveCompany(entry, id = null) {
       const ref = db.collection("users").doc(currentUser.uid).collection("jobs");
-      if (id) {
-        ref.doc(id).set(entry).then(loadCompanies);
-      } else {
-        ref.add(entry).then(loadCompanies);
-      }
-      entry.customDates.forEach(dateItem => {
-        if (dateItem.date) {
-          addEventToCalendar(`${entry.company} - ${dateItem.label}`, dateItem.date, entry.note);
-        }
-      });
-    }
-
-    function deleteCompany(id) {
-      if (confirm("本当に削除しますか？")) {
-        db.collection("users").doc(currentUser.uid).collection("jobs").doc(id).delete().then(loadCompanies);
-      }
+      if (id) ref.doc(id).set(entry).then(loadCompanies);
+      else ref.add(entry).then(loadCompanies);
     }
 
     function displayCompanies() {
       const list = document.getElementById('companyList');
       list.innerHTML = '';
       const filter = document.getElementById('filterStatus').value;
-
-      companies
-        .filter(c => filter === 'すべて' || c.status === filter)
-        .forEach(c => {
-          const li = document.createElement('li');
-          li.style.backgroundColor = 'transparent';
-
-          let customDateList = '';
-          (c.customDates || []).forEach(d => {
-            customDateList += `${d.label}: ${d.date || '未定'}<br>`;
-          });
-
-          li.innerHTML = `
-            <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
-            ${customDateList}
-            メモ: ${c.note}<br>
-            <button onclick="editCompany('${c.id}')">編集</button>
-            <button onclick="deleteCompany('${c.id}')">削除</button>
-          `;
-          list.appendChild(li);
-        });
+      companies.filter(c => filter === 'すべて' || c.status === filter).forEach(c => {
+        const li = document.createElement('li');
+        let customDateList = '';
+        (c.customDates || []).forEach(d => customDateList += `${d.label}: ${d.date || '未定'}<br>`);
+        li.innerHTML = `<strong>${c.company}</strong> - ${c.status}<br>${customDateList}`;
+        list.appendChild(li);
+      });
     }
 
-    function editCompany(id) {
-      const c = companies.find(e => e.id === id);
-      document.getElementById('company').value = c.company;
-      document.getElementById('industry').value = c.industry;
-      document.getElementById('status').value = c.status;
-      document.getElementById('priority').value = c.priority;
-      document.getElementById('note').value = c.note;
-      document.getElementById('editIndex').value = id;
-      document.getElementById('customDates').innerHTML = '';
-      (c.customDates || []).forEach(d => addDateField(d.label, d.date));
+    function renderCalendar() {
+      const calendarEl = document.getElementById('calendar');
+      if (calendar) calendar.destroy();
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ja',
+        events: companies.flatMap(c => (c.customDates || []).map(d => ({
+          title: `${d.label} - ${c.company}`,
+          date: d.date,
+          color: d.label.includes("締切") ? 'red' : d.label.includes("面接") ? 'blue' : 'green'
+        })))
+      });
+      calendar.render();
     }
 
     document.getElementById('jobForm').addEventListener('submit', function(e) {
@@ -233,7 +178,6 @@
       };
       saveCompany(entry, id || null);
       this.reset();
-      document.getElementById('editIndex').value = '';
       document.getElementById('customDates').innerHTML = '';
     });
 
