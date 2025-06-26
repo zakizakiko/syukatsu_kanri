@@ -13,7 +13,9 @@
     .hidden { display: none; }
     .date-field-row { display: flex; gap: 5px; align-items: center; margin-bottom: 8px; }
     .date-field-row input[type="text"] { flex: 2; }
-    .date-field-row input[type="date"] { flex: 3; }
+    .date-field-row input[type="date"] { flex: 2; }
+    .date-field-row input[type="color"] { flex: 1; }
+    .date-field-row input[type="text"].memo { flex: 3; }
   </style>
 </head>
 <body>
@@ -37,7 +39,7 @@
         </select>
       </label>
       <label>志望度（1〜5）: <input type="number" id="priority" min="1" max="5"></label>
-      <label>メモ: <textarea id="note" rows="4"></textarea></label>
+      <label>企業メモ: <textarea id="note" rows="4"></textarea></label>
       <h3>日付項目</h3>
       <div id="customDates"></div>
       <button type="button" onclick="addDateField()">＋ 日付項目を追加</button>
@@ -63,7 +65,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
@@ -108,12 +109,14 @@
 
     logoutBtn.onclick = () => auth.signOut();
 
-    function addDateField(name = '', date = '') {
+    function addDateField(name = '', date = '', color = '', memo = '') {
       const wrapper = document.createElement('div');
       wrapper.className = 'date-field-row';
       wrapper.innerHTML = `
         <input type="text" placeholder="項目名" value="${name}" class="dateLabel">
         <input type="date" value="${date}" class="dateValue">
+        <input type="color" value="${color || '#ffffff'}" class="dateColor">
+        <input type="text" placeholder="予定メモ" value="${memo}" class="memo">
         <button type="button" onclick="this.parentElement.remove()">❌</button>
       `;
       document.getElementById('customDates').appendChild(wrapper);
@@ -122,7 +125,9 @@
     function getCustomDates() {
       return Array.from(document.querySelectorAll('.date-field-row')).map(row => ({
         label: row.querySelector('.dateLabel').value,
-        date: row.querySelector('.dateValue').value
+        date: row.querySelector('.dateValue').value,
+        color: row.querySelector('.dateColor').value,
+        memo: row.querySelector('.memo').value
       })).filter(d => d.label);
     }
 
@@ -153,6 +158,7 @@
       list.innerHTML = '';
       const today = new Date();
       const filter = document.getElementById('filterStatus').value;
+
       const events = [];
 
       const sorted = companies
@@ -175,27 +181,22 @@
         (c.customDates || []).forEach(d => {
           const date = new Date(d.date);
           const diffDays = Math.floor((date - today) / (1000 * 60 * 60 * 24));
-          let bgColor = '';
+          let bgColor = d.color || '';
 
-          if (!isNaN(date) && diffDays >= 0) {
+          if (!bgColor && !isNaN(date) && diffDays >= 0) {
             if (diffDays <= 1) bgColor = '#ffcccc';
             else if (diffDays <= 3) bgColor = '#ffe0b3';
             else if (diffDays <= 6) bgColor = '#ffffcc';
             else if (diffDays <= 14) bgColor = '#ccffcc';
           }
 
-          customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">${d.label}: ${d.date}</span><br>`;
+          customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">${d.label}: ${d.date} (${d.memo || ''})</span><br>`;
 
           if (d.date) {
             events.push({
-              title: `${c.company} - ${d.label}`,
-              start: d.date,
-              extendedProps: {
-                company: c.company,
-                label: d.label,
-                status: c.status,
-                note: c.note
-              }
+              title: `${c.company} - ${d.label}${d.memo ? '：' + d.memo : ''}`,
+              date: d.date,
+              color: bgColor || undefined
             });
           }
         });
@@ -219,12 +220,7 @@
       const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         locale: 'ja',
-        height: 600,
-        events: events,
-        eventClick: function(info) {
-          const { company, label, status, note } = info.event.extendedProps;
-          alert(`企業: ${company}\n項目: ${label}\n状況: ${status}\nメモ: ${note || 'なし'}`);
-        }
+        events: events
       });
       calendar.render();
     }
@@ -238,7 +234,7 @@
       document.getElementById('note').value = c.note;
       document.getElementById('editIndex').value = id;
       document.getElementById('customDates').innerHTML = '';
-      (c.customDates || []).forEach(d => addDateField(d.label, d.date));
+      (c.customDates || []).forEach(d => addDateField(d.label, d.date, d.color, d.memo));
     }
 
     document.getElementById('jobForm').addEventListener('submit', function(e) {
