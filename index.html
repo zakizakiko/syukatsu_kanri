@@ -153,7 +153,6 @@
       list.innerHTML = '';
       const today = new Date();
       const filter = document.getElementById('filterStatus').value;
-
       const events = [];
 
       const sorted = companies
@@ -187,11 +186,16 @@
 
           customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">${d.label}: ${d.date}</span><br>`;
 
-          // カレンダー用イベント
           if (d.date) {
             events.push({
               title: `${c.company} - ${d.label}`,
-              date: d.date
+              start: d.date,
+              extendedProps: {
+                company: c.company,
+                label: d.label,
+                status: c.status,
+                note: c.note
+              }
             });
           }
         });
@@ -215,7 +219,12 @@
       const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         locale: 'ja',
-        events: events
+        height: 600,
+        events: events,
+        eventClick: function(info) {
+          const { company, label, status, note } = info.event.extendedProps;
+          alert(`企業: ${company}\n項目: ${label}\n状況: ${status}\nメモ: ${note || 'なし'}`);
+        }
       });
       calendar.render();
     }
