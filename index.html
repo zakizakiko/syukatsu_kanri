@@ -14,6 +14,7 @@
     .date-field-row input[type="text"] { flex: 2; }
     .date-field-row input[type="date"] { flex: 3; }
   </style>
+<script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
   <h1>就活企業管理</h1>
@@ -69,6 +70,28 @@
     appId: "1:352899195655:web:3c24fe149735c123655ba2",
     measurementId: "G-TRXF8QEDHB"
   };
+
+  //calendar設定
+ const CLIENT_ID = "352899195655-bbbgjl4omo83fteavk2jvc4rp25a0h2d.apps.googleusercontent.com";
+ const API_KEY = "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8";  // Firebaseと同じ
+
+ const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+ const SCOPES = "https://www.googleapis.com/auth/calendar.events";
+
+ function initGoogleCalendarApi() {
+    gapi.load('client:auth2', () => {
+      gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES
+        }).then(() => {
+  // 認証が完了していればイベント追加可能
+      console.log("Google Calendar API 初期化完了");
+        });
+      });
+    }
+
 
   // ✅ 初期化
   firebase.initializeApp(firebaseConfig);
@@ -197,6 +220,27 @@
     list.appendChild(li);
       });
     }
+
+
+    function addEventToCalendar(title, date, description = "") {
+  const event = {
+    summary: title,
+    description: description,
+    start: {
+      date: date
+    },
+    end: {
+      date: date
+    }
+  };
+
+  gapi.client.calendar.events.insert({
+    calendarId: 'primary',
+    resource: event
+  }).then(event => {
+    alert("Google カレンダーに追加しました！");
+  });
+}
 
   
     function editCompany(id) {
