@@ -14,7 +14,7 @@
     .date-field-row input[type="text"] { flex: 2; }
     .date-field-row input[type="date"] { flex: 3; }
   </style>
-<script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
   <h1>就活企業管理</h1>
@@ -55,48 +55,28 @@
     </select>
     <ul id="companyList"></ul>
   </div>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-<script>
-  // ✅ Firebase設定
-  const firebaseConfig = {
-    apiKey: "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8",
-    authDomain: "syukatsukanri-cad68.firebaseapp.com",
-    projectId: "syukatsukanri-cad68",
-    storageBucket: "syukatsukanri-cad68.appspot.com",
-    messagingSenderId: "352899195655",
-    appId: "1:352899195655:web:3c24fe149735c123655ba2",
-    measurementId: "G-TRXF8QEDHB"
-  };
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <script>
+    const CLIENT_ID = "352899195655-bbbgjl4omo83fteavk2jvc4rp25a0h2d.apps.googleusercontent.com";
+    const API_KEY = "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8";
+    const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+    const SCOPES = "https://www.googleapis.com/auth/calendar.events";
 
-  //calendar設定
- const CLIENT_ID = "352899195655-bbbgjl4omo83fteavk2jvc4rp25a0h2d.apps.googleusercontent.com";
- const API_KEY = "AIzaSyCtJkRR9KiHCI9cmeHd3U6GAKFuUKKnkD8";  // Firebaseと同じ
+    const firebaseConfig = {
+      apiKey: API_KEY,
+      authDomain: "syukatsukanri-cad68.firebaseapp.com",
+      projectId: "syukatsukanri-cad68",
+      storageBucket: "syukatsukanri-cad68.appspot.com",
+      messagingSenderId: "352899195655",
+      appId: "1:352899195655:web:3c24fe149735c123655ba2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
- const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
- const SCOPES = "https://www.googleapis.com/auth/calendar.events";
-
- function initGoogleCalendarApi() {
-    gapi.load('client:auth2', () => {
-      gapi.client.init({
-        apiKey: API_KEY,
-        clientId: CLIENT_ID,
-        discoveryDocs: DISCOVERY_DOCS,
-        scope: SCOPES
-        }).then(() => {
-  // 認証が完了していればイベント追加可能
-      console.log("Google Calendar API 初期化完了");
-        });
-      });
-    }
-
-
-  // ✅ 初期化
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
     const loginBtn = document.getElementById("loginButton");
     const logoutBtn = document.getElementById("logoutButton");
     const userEmail = document.getElementById("userEmail");
@@ -112,6 +92,7 @@
         authContent.classList.remove("hidden");
         userEmail.textContent = `ログイン中: ${user.email}`;
         loadCompanies();
+        initGoogleCalendarApi();
       } else {
         currentUser = null;
         loginBtn.style.display = "inline";
@@ -127,6 +108,33 @@
     };
 
     logoutBtn.onclick = () => auth.signOut();
+
+    function initGoogleCalendarApi() {
+      gapi.load("client:auth2", () => {
+        gapi.client.init({
+          apiKey: API_KEY,
+          clientId: CLIENT_ID,
+          discoveryDocs: DISCOVERY_DOCS,
+          scope: SCOPES
+        }).then(() => console.log("Google Calendar API 初期化完了"))
+        .catch(e => console.error("Google API 初期化失敗", e));
+      });
+    }
+
+    function addEventToCalendar(title, date, description = "") {
+      const event = {
+        summary: title,
+        description: description,
+        start: { date: date },
+        end: { date: date }
+      };
+      gapi.client.calendar.events.insert({
+        calendarId: "primary",
+        resource: event
+      }).then(() => {
+        console.log(`${title} をカレンダーに追加しました`);
+      }).catch(e => console.error("カレンダー追加失敗", e));
+    }
 
     function addDateField(name = '', date = '') {
       const wrapper = document.createElement('div');
@@ -160,6 +168,11 @@
       } else {
         ref.add(entry).then(loadCompanies);
       }
+      entry.customDates.forEach(dateItem => {
+        if (dateItem.date) {
+          addEventToCalendar(`${entry.company} - ${dateItem.label}`, dateItem.date, entry.note);
+        }
+      });
     }
 
     function deleteCompany(id) {
@@ -168,81 +181,33 @@
       }
     }
 
-  function displayCompanies() {
-  const list = document.getElementById('companyList');
-  list.innerHTML = '';
-  const today = new Date();
-  const filter = document.getElementById('filterStatus').value;
+    function displayCompanies() {
+      const list = document.getElementById('companyList');
+      list.innerHTML = '';
+      const filter = document.getElementById('filterStatus').value;
 
-  // 期日が一番近いものを抽出
-  const companiesWithNearestDate = companies
-    .filter(c => filter === 'すべて' || c.status === filter)
-    .map(c => {
-      const upcomingDates = (c.customDates || [])
-        .map(d => {
-          const date = new Date(d.date);
-          const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
-          return (!isNaN(date) && diff >= 0) ? diff : Infinity;
+      companies
+        .filter(c => filter === 'すべて' || c.status === filter)
+        .forEach(c => {
+          const li = document.createElement('li');
+          li.style.backgroundColor = 'transparent';
+
+          let customDateList = '';
+          (c.customDates || []).forEach(d => {
+            customDateList += `${d.label}: ${d.date || '未定'}<br>`;
+          });
+
+          li.innerHTML = `
+            <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
+            ${customDateList}
+            メモ: ${c.note}<br>
+            <button onclick="editCompany('${c.id}')">編集</button>
+            <button onclick="deleteCompany('${c.id}')">削除</button>
+          `;
+          list.appendChild(li);
         });
-      const nearest = Math.min(...upcomingDates);
-      return { ...c, nearestDate: nearest };
-    })
-    .sort((a, b) => a.nearestDate - b.nearestDate);
-
-  companiesWithNearestDate.forEach(c => {
-    const li = document.createElement('li');
-
-    let customDateList = '';
-    (c.customDates || []).forEach(d => {
-      const date = new Date(d.date);
-      const diffDays = Math.floor((date - today) / (1000 * 60 * 60 * 24));
-      let bgColor = '';
-
-      if (!isNaN(date) && diffDays >= 0) {
-        if (diffDays <= 1) bgColor = '#ffcccc';     // 赤
-        else if (diffDays <= 3) bgColor = '#ffe0b3'; // オレンジ
-        else if (diffDays <= 6) bgColor = '#ffffcc'; // 黄
-        else if (diffDays <= 14) bgColor = '#ccffcc';// 黄緑
-      }
-
-      customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">
-        ${d.label}: ${d.date || '未定'}
-      </span><br>`;
-    });
-
-    li.innerHTML = `
-      <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
-      ${customDateList}
-      メモ: ${c.note}<br>
-      <button onclick="editCompany('${c.id}')">編集</button>
-      <button onclick="deleteCompany('${c.id}')">削除</button>
-    `;
-    list.appendChild(li);
-      });
     }
 
-
-    function addEventToCalendar(title, date, description = "") {
-  const event = {
-    summary: title,
-    description: description,
-    start: {
-      date: date
-    },
-    end: {
-      date: date
-    }
-  };
-
-  gapi.client.calendar.events.insert({
-    calendarId: 'primary',
-    resource: event
-  }).then(event => {
-    alert("Google カレンダーに追加しました！");
-  });
-}
-
-  
     function editCompany(id) {
       const c = companies.find(e => e.id === id);
       document.getElementById('company').value = c.company;
