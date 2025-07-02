@@ -45,6 +45,7 @@
     </form>
 
     <h2>登録一覧</h2>
+    <label>企業名で検索: <input type="text" id="searchKeyword" placeholder="例：トヨタ、電通など"></label>
     <select id="filterStatus">
       <option value="すべて">すべて</option>
       <option value="未応募">未応募</option>
@@ -148,70 +149,75 @@
       }
     }
 
-    function displayCompanies() {
-      const list = document.getElementById('companyList');
-      list.innerHTML = '';
-      const today = new Date();
-      const filter = document.getElementById('filterStatus').value;
-      const events = [];
+   　　function displayCompanies() {
+  const list = document.getElementById('companyList');
+  list.innerHTML = '';
+  const today = new Date();
+  const filter = document.getElementById('filterStatus').value;
+  const keyword = document.getElementById('searchKeyword').value.trim().toLowerCase(); // 🔍検索キーワード
 
-      const sorted = companies
-        .filter(c => filter === 'すべて' || c.status === filter)
-        .map(c => {
-          const upcomingDates = (c.customDates || []).map(d => {
-            const date = new Date(d.date);
-            const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
-            return (!isNaN(date) && diff >= 0) ? diff : Infinity;
-          });
-          const nearest = Math.min(...upcomingDates);
-          return { ...c, nearestDate: nearest };
-        })
-        .sort((a, b) => a.nearestDate - b.nearestDate);
+  const events = [];
 
-      sorted.forEach(c => {
-        const li = document.createElement('li');
-        let customDateList = '';
+  const sorted = companies
+    .filter(c =>
+      (filter === 'すべて' || c.status === filter) &&
+      (!keyword || c.company.toLowerCase().includes(keyword)) // 🔍名前一致
+    )
+    .map(c => {
+      const upcomingDates = (c.customDates || []).map(d => {
+        const date = new Date(d.date);
+        const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
+        return (!isNaN(date) && diff >= 0) ? diff : Infinity;
+      });
+      const nearest = Math.min(...upcomingDates);
+      return { ...c, nearestDate: nearest };
+    })
+    .sort((a, b) => a.nearestDate - b.nearestDate);
 
-        (c.customDates || []).forEach(d => {
-          const date = new Date(d.date);
-          const diffDays = Math.floor((date - today) / (1000 * 60 * 60 * 24));
-          let bgColor = '';
+  sorted.forEach(c => {
+    const li = document.createElement('li');
+    let customDateList = '';
 
-          if (!isNaN(date) && diffDays >= 0) {
-            if (diffDays <= 1) bgColor = '#ffcccc';
-            else if (diffDays <= 3) bgColor = '#ffe0b3';
-            else if (diffDays <= 6) bgColor = '#ffffcc';
-            else if (diffDays <= 14) bgColor = '#ccffcc';
-          }
+    (c.customDates || []).forEach(d => {
+      const date = new Date(d.date);
+      const diffDays = Math.floor((date - today) / (1000 * 60 * 60 * 24));
+      let bgColor = '';
 
-          customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">${d.label}: ${d.date}</span><br>`;
+      if (!isNaN(date) && diffDays >= 0) {
+        if (diffDays <= 1) bgColor = '#ffcccc';
+        else if (diffDays <= 3) bgColor = '#ffe0b3';
+        else if (diffDays <= 6) bgColor = '#ffffcc';
+        else if (diffDays <= 14) bgColor = '#ccffcc';
+      }
 
-          if (d.date) {
-            events.push({
-              title: `${c.company} - ${d.label}`,
-              start: d.date,
-              extendedProps: {
-                company: c.company,
-                label: d.label,
-                status: c.status,
-                note: c.note
-              }
-            });
+      customDateList += `<span style="background-color:${bgColor}; padding:2px 4px; border-radius:4px;">${d.label}: ${d.date}</span><br>`;
+
+      if (d.date) {
+        events.push({
+          title: `${c.company} - ${d.label}`,
+          start: d.date,
+          extendedProps: {
+            company: c.company,
+            label: d.label,
+            status: c.status,
+            note: c.note
           }
         });
+      }
+    });
 
-        li.innerHTML = `
-          <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
-          ${customDateList}
-          メモ: ${c.note}<br>
-          <button onclick="editCompany('${c.id}')">編集</button>
-          <button onclick="deleteCompany('${c.id}')">削除</button>
-        `;
-        list.appendChild(li);
-      });
+    li.innerHTML = `
+      <strong>${c.company}</strong> (${c.industry}) - 状況: ${c.status}, 志望度: ${c.priority}<br>
+      ${customDateList}
+      メモ: ${c.note}<br>
+      <button onclick="editCompany('${c.id}')">編集</button>
+      <button onclick="deleteCompany('${c.id}')">削除</button>
+    `;
+    list.appendChild(li);
+  });
 
-      renderCalendar(events);
-    }
+  renderCalendar(events);
+}
 
     function renderCalendar(events) {
       const calendarEl = document.getElementById('calendar');
